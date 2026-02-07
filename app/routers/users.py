@@ -1,33 +1,55 @@
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from fastapi.security import HTTPBasicCredentials
 
 from app.core.dependencies import get_db
 from app.core.security import auth_security
 from app.database.users import UserRepository
+from app.schemas.exceptions import ErrorResponse
 from app.schemas.users import UserActivate, UserCreate, UserResponse
 from app.services.users import UserService
 from app.utils.smtp import EmailConsoleClient
 
-users_router = APIRouter(tags=["users"])
+common_responses = {
+    status.HTTP_400_BAD_REQUEST: {"model": ErrorResponse},
+    status.HTTP_401_UNAUTHORIZED: {"model": ErrorResponse},
+    status.HTTP_409_CONFLICT: {"model": ErrorResponse},
+    status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorResponse},
+    status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponse},
+}
+
+users_router = APIRouter(tags=["users"], responses=common_responses)
 
 
-@users_router.post("/users", response_model=UserResponse, status_code=201)
+@users_router.post(
+    "/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_user(
     user: UserCreate, conn: asyncpg.Connection = Depends(get_db)
 ) -> UserResponse:
     """
-    Create a new user.
+    Create a new user account.
 
     This endpoint accepts a JSON payload with the user's email and password,
-    creates a new user in the database, and returns a response containing the
-    user's email and a status message.
+    validates the input, stores the user credentials in the database, generates
+    a 4-digit activation code, and sends it to the user via email. The user account
+    is created in an inactive state and must be activated using the activation code.
 
     Args:
-        user (UserCreate): The user data to create, including email and password.
+        user (UserCreate): The user data to create, containing:
+            - email (str): A valid, unique email address.
+            - password (str): A secure password (validation requirements apply).
+        conn (asyncpg.Connection): Database connection from the pool (dependency injected).
 
     Returns:
-        UserResponse: A response model containing the user's email and status.
+        UserResponse: A response model containing:
+            - email (str): The created user's email address.
+            - status (str): Creation status ("created").
+
+    Raises (HTTP responses):
+        - 409 Conflict: Email address already exists in the database.
+        - 422 Unprocessable Content: Invalid request payload or validation failure.
+        - 500 Internal Server Error: Database or email service error.
     """
     user_repository = UserRepository(conn)
     email_client = EmailConsoleClient()
@@ -36,7 +58,9 @@ async def create_user(
     return user_response
 
 
-@users_router.post("/users/activate", response_model=UserResponse, status_code=200)
+@users_router.post(
+    "/users/activate", response_model=UserResponse, status_code=status.HTTP_200_OK
+)
 async def activate_user(
     user: UserActivate,
     conn: asyncpg.Connection = Depends(get_db),
@@ -70,7 +94,7 @@ async def activate_user(
         - 401 Unauthorized: Invalid email or password provided in authentication.
         - 400 Bad Request: Invalid or expired activation code.
         - 409 Conflict: User account is already activated.
-        - 422 Unprocessable Entity: Invalid request payload (e.g., code not 4 digits).
+        - 422 Unprocessable Content: Invalid request payload (e.g., code not 4 digits).
     """
     user_repository = UserRepository(conn)
     email_client = EmailConsoleClient()

@@ -1,11 +1,11 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.core.middleware import ErrorHandlingMiddleware
+from app.core.middleware import ErrorHandlingMiddleware, logger
 from app.database.init import init_db
 from app.database.pool import db
 from app.routers.users import users_router
@@ -55,6 +55,12 @@ app.include_router(users_router)
 
 @app.exception_handler(APIException)
 async def api_exception_handler(request: Request, exc: APIException):
+    # Log the full exception for debugging
+    logger.error(
+        f"✗ {request.method} {request.url.path} "
+        f"| Exception: {type(exc).__name__}: {str(exc)} ",
+        exc_info=True,
+    )
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -78,9 +84,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "type": error.get("type"),
         }
         sanitized_errors.append(error_dict)
-
+    # Log the full exception for debugging
+    logger.error(
+        f"✗ {request.method} {request.url.path} "
+        f"| Exception: {type(exc).__name__}: {str(error_dict["msg"])} ",
+        exc_info=True,
+    )
     return JSONResponse(
-        status_code=422,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content={
             "error": {
                 "code": VALIDATION_ERROR_CODE,

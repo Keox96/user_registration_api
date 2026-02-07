@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
+from fastapi import status
 
 from app.core.security import hash_password
 from app.utils.constants import (EXPIRED_ACTIVATION_CODE_ERROR_CODE,
@@ -25,7 +26,7 @@ async def test_create_user_success(test_client):
         "/users",
         json={"email": "test@example.com", "password": "secure_password_123"},
     )
-    assert response.status_code == 201
+    assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
     assert "email" in data
     assert "status" in data
@@ -74,7 +75,9 @@ async def test_create_user_validation_error(
         description: Human-readable description of the test case.
     """
     response = await test_client.post("/users", json=payload)
-    assert response.status_code == 422, f"Expected 422 for {description}"
+    assert (
+        response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    ), f"Failed case: {description}"
     assert response.json()["error"]["code"] == error_code
 
 
@@ -87,7 +90,7 @@ async def test_create_user_duplicate_email(test_client):
         "/users",
         json=input_data,
     )
-    assert response1.status_code == 201
+    assert response1.status_code == status.HTTP_201_CREATED
     assert response1.json()["email"] == input_data["email"]
     assert response1.json()["status"] == "created"
 
@@ -101,7 +104,7 @@ async def test_create_user_duplicate_email(test_client):
     )
     # Should fail due to unique constraint
     error_data = response2.json()
-    assert response2.status_code == 409
+    assert response2.status_code == status.HTTP_409_CONFLICT
     assert error_data["error"]["code"] == USER_ALREADY_EXISTS_ERROR_CODE
 
 
@@ -117,7 +120,7 @@ async def test_create_user_duplicate_email(test_client):
             "password123",
             "1234",
             "1234",
-            200,
+            status.HTTP_200_OK,
             None,
         ),
         # ❌ Error case: Invalid email (user does not exist)
@@ -126,7 +129,7 @@ async def test_create_user_duplicate_email(test_client):
             "password123",
             "1234",
             "1234",
-            401,
+            status.HTTP_401_UNAUTHORIZED,
             INVALID_EMAIL_ERROR_CODE,
         ),
         # ❌ Error case: Invalid password
@@ -135,7 +138,7 @@ async def test_create_user_duplicate_email(test_client):
             "password123",
             "1234",
             "1234",
-            401,
+            status.HTTP_401_UNAUTHORIZED,
             INVALID_PASSWORD_ERROR_CODE,
         ),
         # ❌ Error case: Invalid activation code
@@ -144,7 +147,7 @@ async def test_create_user_duplicate_email(test_client):
             "password123",
             "1234",
             "5678",
-            400,
+            status.HTTP_400_BAD_REQUEST,
             INVALID_ACTIVATION_CODE_ERROR_CODE,
         ),
         # ❌ Error case: Empty code
@@ -153,7 +156,7 @@ async def test_create_user_duplicate_email(test_client):
             "password123",
             "1234",
             "",
-            422,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             VALIDATION_ERROR_CODE,
         ),
         # ❌ Error case: Code not 4 digits
@@ -162,7 +165,7 @@ async def test_create_user_duplicate_email(test_client):
             "password123",
             "1234",
             "12",
-            422,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             VALIDATION_ERROR_CODE,
         ),
         # ❌ Error case: Code with non-numeric characters
@@ -171,7 +174,7 @@ async def test_create_user_duplicate_email(test_client):
             "password123",
             "1234",
             "abcd",
-            422,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             VALIDATION_ERROR_CODE,
         ),
     ],
@@ -210,7 +213,7 @@ async def test_activate_user(
             "/users",
             json=user_payload,
         )
-        assert create_response.status_code == 201
+        assert create_response.status_code == status.HTTP_201_CREATED
         created_user = create_response.json()
         assert created_user["email"] == user_payload["email"]
         assert created_user["status"] == USER_STATUS_CREATED
@@ -229,7 +232,7 @@ async def test_activate_user(
     response_data = activate_response.json()
 
     # Verify the result based on the case
-    if expected_status == 200:
+    if expected_status == status.HTTP_200_OK:
         # Success case
         assert response_data["email"] == email
         assert response_data["status"] == "activated"
@@ -254,7 +257,7 @@ async def test_activate_user_already_activated(test_client):
             "/users",
             json={"email": email, "password": password},
         )
-        assert create_response.status_code == 201
+        assert create_response.status_code == status.HTTP_201_CREATED
 
     # First activation (success)
     first_activate = await test_client.post(
@@ -262,7 +265,7 @@ async def test_activate_user_already_activated(test_client):
         json={"code": code},
         auth=(email, password),
     )
-    assert first_activate.status_code == 200
+    assert first_activate.status_code == status.HTTP_200_OK
     assert first_activate.json()["status"] == USER_STATUS_ACTIVATED
 
     # Second activation attempt (error)
@@ -271,7 +274,7 @@ async def test_activate_user_already_activated(test_client):
         json={"code": code},
         auth=(email, password),
     )
-    assert second_activate.status_code == 409
+    assert second_activate.status_code == status.HTTP_409_CONFLICT
     assert second_activate.json()["error"]["code"] == USER_ALREADY_ACTIVATED_ERROR_CODE
 
 
@@ -290,7 +293,7 @@ async def test_activate_user_expired_code(test_client):
             "/users",
             json={"email": email, "password": password},
         )
-        assert create_response.status_code == 201
+        assert create_response.status_code == status.HTTP_201_CREATED
 
     # Wait just enough for the code to expire
     # (normally the code expires after 24h, but we can test manually
@@ -319,7 +322,7 @@ async def test_activate_user_expired_code(test_client):
             auth=(email, password),
         )
 
-        assert activate_response.status_code == 400
+        assert activate_response.status_code == status.HTTP_400_BAD_REQUEST
         assert (
             activate_response.json()["error"]["code"]
             == EXPIRED_ACTIVATION_CODE_ERROR_CODE

@@ -1,8 +1,9 @@
+from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import asyncpg
 
-from core.config import settings
+from app.core.config import settings
 
 
 class Database:
@@ -48,6 +49,7 @@ class Database:
         if self.pool:
             await self.pool.close()
 
+    @asynccontextmanager
     async def get_connection(self) -> AsyncGenerator[asyncpg.Connection, None]:
         """
         Acquire a connection from the pool as an async context manager.

@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     database_url: str = Field(DEFAULT_DATABASE_URL, env="DATABASE_URL")
 
     class Config:
-        env_file = ".env"  # optionnel
+        env_file = ".env"  # optional
         case_sensitive = True
 
 

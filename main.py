@@ -68,14 +68,24 @@ async def api_exception_handler(request: Request, exc: APIException):
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc):
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # Sanitize errors to ensure they are JSON serializable
+    sanitized_errors = []
+    for error in exc.errors():
+        error_dict = {
+            "loc": error.get("loc"),
+            "msg": error.get("msg"),
+            "type": error.get("type"),
+        }
+        sanitized_errors.append(error_dict)
+
     return JSONResponse(
         status_code=422,
         content={
             "error": {
                 "code": VALIDATION_ERROR_CODE,
                 "message": "Invalid request payload",
-                "details": exc.errors(),
+                "details": sanitized_errors,
             }
         },
     )

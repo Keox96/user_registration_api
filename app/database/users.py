@@ -31,3 +31,12 @@ class UserRepository:
     async def get_user_by_email(self, email: str):
         query = "SELECT * FROM users WHERE email = $1"
         return await self.conn.fetchrow(query, email)
+
+    async def activate_user(self, user_id: uuid.UUID) -> bool:
+        query = """
+            UPDATE users
+            SET is_active = true, activation_code = NULL, activation_expires_at = NULL
+            WHERE id = $1
+        """
+        await self.conn.execute(query, user_id)
+        return True

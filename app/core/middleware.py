@@ -2,9 +2,9 @@
 
 import logging
 
+from fastapi import Request, status
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
@@ -29,18 +29,33 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
         Returns:
             Response: The response from the handler or a clean error response.
         """
+        # Log incoming request
+        logger.info(
+            f"→ {request.method} {request.url.path} "
+            f"| Remote: {request.client.host if request.client else 'unknown'} "
+            f"| JSON Body: {await request.json() if request.method in ['POST', 'PUT', 'PATCH'] else 'None'}"
+        )
+
         try:
             response = await call_next(request)
+
+            # Log successful response
+            logger.info(
+                f"← {request.method} {request.url.path} "
+                f"| Status: {response.status_code} "
+                f"| Reponse: {response.body.decode() if hasattr(response, 'body') else 'None'}"
+            )
             return response
         except Exception as exc:
             # Log the full exception for debugging
             logger.error(
-                f"Unhandled exception: {type(exc).__name__}: {str(exc)}",
+                f"✗ {request.method} {request.url.path} "
+                f"| Exception: {type(exc).__name__}: {str(exc)} ",
                 exc_info=True,
             )
             # Return a clean error response to the client
             return JSONResponse(
-                status_code=500,
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content={
                     "error": {
                         "code": "INTERNAL_SERVER_ERROR",

@@ -20,9 +20,11 @@ class UserService:
         self.user_repository = user_repository
         self.email_client = email_client
 
+    # Private method to generate a 4-digit activation code
     def _generate_code(self) -> str:
         return f"{random.randint(0, 9999):04d}"
 
+    # Public method to create a new user account
     async def create_user(self, user: UserCreate) -> UserResponse:
         if await self.user_repository.get_user_by_email(user.email):
             raise UserAlreadyExists(email=user.email)
@@ -39,6 +41,7 @@ class UserService:
         await self.email_client.send_verification_email(created_user_email, code)
         return UserResponse(email=created_user_email, status=USER_STATUS_CREATED)
 
+    # Public method to activate a user account using the provided activation code and credentials
     async def activate_user(
         self, user: UserActivate, credentials: HTTPBasicCredentials
     ) -> UserResponse:
@@ -61,7 +64,6 @@ class UserService:
         ):
             raise ExpiredActivationCode(user.code)
 
-        # Implement the logic to activate the user based on the provided activation code
-        # This is a placeholder implementation, replace it with your actual logic
+        # Activate the user account in the database
         await self.user_repository.activate_user(user_db["id"])
         return UserResponse(email=user_db["email"], status=USER_STATUS_ACTIVATED)

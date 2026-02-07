@@ -1,7 +1,7 @@
 [project]
 name = "user-registration-api"
 version = "0.1.0"
-description = ""
+description = "User Registration API for Dailymotion"
 authors = [
     {name = "Keox96",email = "asmboss1096@gmail.com"}
 ]

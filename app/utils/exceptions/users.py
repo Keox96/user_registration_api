@@ -1,3 +1,5 @@
+from fastapi import status
+
 from app.utils.constants import (EXPIRED_ACTIVATION_CODE_ERROR_CODE,
                                  INVALID_ACTIVATION_CODE_ERROR_CODE,
                                  USER_ALREADY_ACTIVATED_ERROR_CODE,
@@ -10,7 +12,7 @@ class UserAlreadyExists(APIException):
         super().__init__(
             code=USER_ALREADY_EXISTS_ERROR_CODE,
             message="A user with this email already exists",
-            status_code=409,
+            status_code=status.HTTP_409_CONFLICT,
             details={"email": email},
         )
 
@@ -20,7 +22,7 @@ class UserAlreadyActivated(APIException):
         super().__init__(
             code=USER_ALREADY_ACTIVATED_ERROR_CODE,
             message="This user account is already activated",
-            status_code=409,
+            status_code=status.HTTP_409_CONFLICT,
             details={"email": email},
         )
 
@@ -30,7 +32,7 @@ class InvalidActivationCode(APIException):
         super().__init__(
             code=INVALID_ACTIVATION_CODE_ERROR_CODE,
             message="The provided activation code is invalid",
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             details={"code": code},
         )
 
@@ -40,6 +42,6 @@ class ExpiredActivationCode(APIException):
         super().__init__(
             code=EXPIRED_ACTIVATION_CODE_ERROR_CODE,
             message="The provided activation code has expired",
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             details={"code": code},
         )
